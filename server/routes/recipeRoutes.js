@@ -8,7 +8,7 @@ const {
   generateSuggestions,
 } = require("../controllers/recipeController");
 
-// IMPORTANT: multer used here
+// ✅ THIS IS IMPORTANT
 router.post("/analyze", upload.single("image"), analyzeImage);
 
 router.post("/generate", generateRecipe);
