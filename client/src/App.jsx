@@ -3,8 +3,6 @@ import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
 
-const API = "https://ai-recepie-generator.onrender.com";
-
 function App() {
   const navigate = useNavigate();
 
@@ -17,6 +15,7 @@ function App() {
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState([]);
 
+const API = "https://ai-recepie-generator.onrender.com";
   // 🔹 Generate Recipe
   const getRecipe = async () => {
     try {
@@ -25,7 +24,7 @@ function App() {
       setRecipe("");
       setSuggestions([]);
 
-      const cleaned =
+      let cleaned =
         finalIngredients.length > 0
           ? finalIngredients
           : ingredients.split(",").map(i => i.trim()).filter(i => i);
@@ -35,21 +34,20 @@ function App() {
         return;
       }
 
-      const res = await axios.post(`${API}/api/recipes/generate`, {
-        ingredients: cleaned,
-        diet,
-      });
+      const res = await axios.post(
+        `${API}/api/recipes/generate`,
+        { ingredients: cleaned, diet }
+      );
 
       setRecipe(res.data.recipe);
-    } catch (err) {
-      console.error(err);
+    } catch {
       setError("❌ Failed to fetch recipe");
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔹 Detect Ingredients from Image
+  // 🔹 Detect + Auto Generate
   const handleImageUpload = async () => {
     if (!image) {
       setError("⚠️ Please select an image");
@@ -67,20 +65,10 @@ function App() {
 
       const detectRes = await axios.post(
         `${API}/api/recipes/analyze`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
+        formData
       );
 
-      const detected = detectRes.data.ingredients || [];
-
-      if (detected.length === 0) {
-        setError("❌ Could not detect ingredients");
-        return;
-      }
+      const detected = detectRes.data.ingredients;
 
       setFinalIngredients(detected);
       setIngredients(detected.join(", "));
@@ -91,8 +79,7 @@ function App() {
       );
 
       setRecipe(recipeRes.data.recipe);
-    } catch (err) {
-      console.error(err);
+    } catch {
       setError("❌ Image processing failed");
     } finally {
       setLoading(false);
@@ -102,48 +89,49 @@ function App() {
   // 🔹 Suggestions
   const getSuggestions = async () => {
     try {
-      const cleaned = ingredients
-        .split(",")
-        .map(i => i.trim())
-        .filter(i => i);
-
-      if (cleaned.length === 0) {
-        setError("⚠️ Enter ingredients first");
-        return;
-      }
+      const cleaned = ingredients.split(",").map(i => i.trim());
 
       const res = await axios.post(
         `${API}/api/recipes/suggestions`,
         { ingredients: cleaned }
       );
 
-      setSuggestions(res.data.suggestions || []);
-    } catch {
-      setError("❌ Failed to fetch ideas");
+      setSuggestions(res.data.suggestions);
+    } catch (err) {
+      console.error(err);
     }
   };
 
   return (
     <div style={styles.page}>
+      {/* CARD */}
       <div style={styles.card}>
-        <h2>🍳 AI Recipe Generator</h2>
+        {/* HEADER */}
+        <div style={styles.header}>
+          <span style={styles.icon}>🍳</span>
+          <h1 style={styles.title}>AI Recipe Generator</h1>
+        </div>
 
+        {/* INPUT */}
         <input
           value={ingredients}
           onChange={(e) => {
             setIngredients(e.target.value);
             setFinalIngredients([]);
           }}
-          placeholder="Enter ingredients"
+          placeholder="Enter ingredients (e.g. egg, bread)"
           style={styles.input}
         />
 
+        {/* IMAGE INPUT */}
         <input
           type="file"
           accept="image/*"
           onChange={(e) => setImage(e.target.files[0])}
+          style={styles.file}
         />
 
+        {/* PREVIEW */}
         {image && (
           <img
             src={URL.createObjectURL(image)}
@@ -152,26 +140,50 @@ function App() {
           />
         )}
 
+        {/* DETECT */}
         <button onClick={handleImageUpload} style={styles.secondaryBtn}>
           Detect Ingredients
         </button>
 
-        <select value={diet} onChange={(e) => setDiet(e.target.value)}>
-          <option value="">Normal</option>
-          <option value="vegan">Vegan</option>
-          <option value="keto">Keto</option>
+        {/* DIET */}
+        <select
+          value={diet}
+          onChange={(e) => setDiet(e.target.value)}
+          style={styles.select}
+        >
+          <option value="">🍽 Normal</option>
+          <option value="vegan">🥗 Vegan</option>
+          <option value="keto">🥩 Keto</option>
         </select>
 
+        {/* GENERATE */}
         <button onClick={getRecipe} style={styles.button}>
           Generate Recipe
         </button>
 
+        {/* IDEAS */}
         <button onClick={getSuggestions} style={styles.secondaryBtn}>
           Get Ideas
         </button>
 
-        {loading && <p>⏳ Loading...</p>}
-        {error && <p style={{ color: "red" }}>{error}</p>}
+        {/* LOADING */}
+        {loading && <div style={styles.spinner}></div>}
+
+        {/* ERROR */}
+        {error && <p style={styles.error}>{error}</p>}
+
+        {/* SUGGESTIONS */}
+        {suggestions.length > 0 && (
+          <div style={styles.suggestions}>
+            <h3>💡 Ideas</h3>
+            {suggestions.map((s, i) => (
+              <p key={i}>👉 {s}</p>
+            ))}
+          </div>
+        )}
+
+        {/* RESULT */}
+        {recipe && <hr style={styles.divider} />}
 
         {recipe && (
           <div style={styles.output}>
@@ -180,21 +192,148 @@ function App() {
         )}
       </div>
 
-      <button onClick={() => navigate("/history")}>
-        📜 View History
-      </button>
+      {/* ✅ HISTORY BUTTON BELOW CARD */}
+      <div style={styles.historyWrapper}>
+        <button
+          onClick={() => navigate("/history")}
+          style={styles.historyBtn}
+        >
+          📜 View History
+        </button>
+      </div>
     </div>
   );
 }
 
+// 🎨 STYLES
 const styles = {
-  page: { textAlign: "center", padding: "30px" },
-  card: { maxWidth: "500px", margin: "auto" },
-  input: { width: "100%", padding: "10px", margin: "10px 0" },
-  preview: { width: "100%", margin: "10px 0" },
-  button: { background: "green", color: "white", padding: "10px", width: "100%" },
-  secondaryBtn: { background: "blue", color: "white", padding: "10px", width: "100%", marginTop: "10px" },
-  output: { marginTop: "20px", textAlign: "left" }
+  page: {
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    background: "linear-gradient(135deg, #0f172a, #1e293b)",
+    color: "white",
+    padding: "20px",
+  },
+
+  card: {
+    width: "500px",
+    maxWidth: "95%",
+    padding: "30px",
+    borderRadius: "20px",
+    background: "#0b1220",
+    boxShadow: "0 20px 50px rgba(0,0,0,0.6)",
+    textAlign: "center",
+  },
+
+  header: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "10px",
+    marginBottom: "20px",
+  },
+
+  icon: { fontSize: "28px" },
+  title: { fontSize: "26px", margin: 0 },
+
+  input: {
+    width: "100%",
+    padding: "12px",
+    borderRadius: "10px",
+    border: "none",
+    marginBottom: "12px",
+  },
+
+  file: { marginBottom: "10px" },
+
+  preview: {
+    width: "100%",
+    maxHeight: "250px",
+    objectFit: "cover",
+    borderRadius: "12px",
+    marginBottom: "12px",
+  },
+
+  select: {
+    width: "100%",
+    padding: "10px",
+    borderRadius: "10px",
+    marginBottom: "12px",
+  },
+
+  button: {
+    width: "100%",
+    padding: "12px",
+    background: "#22c55e",
+    border: "none",
+    borderRadius: "10px",
+    color: "white",
+    fontWeight: "bold",
+    cursor: "pointer",
+    marginTop: "12px",
+  },
+
+  secondaryBtn: {
+    width: "100%",
+    padding: "10px",
+    background: "#3b82f6",
+    border: "none",
+    borderRadius: "10px",
+    color: "white",
+    marginTop: "8px",
+    cursor: "pointer",
+  },
+
+  historyWrapper: {
+    marginTop: "20px",
+  },
+
+  historyBtn: {
+    padding: "10px 20px",
+    background: "#64748b",
+    border: "none",
+    borderRadius: "8px",
+    color: "white",
+    cursor: "pointer",
+  },
+
+  spinner: {
+    width: "40px",
+    height: "40px",
+    margin: "15px auto",
+    border: "4px solid #334155",
+    borderTop: "4px solid #22c55e",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+  },
+
+  error: {
+    marginTop: "10px",
+    color: "#f87171",
+  },
+
+  suggestions: {
+    marginTop: "15px",
+    textAlign: "left",
+  },
+
+  divider: {
+    margin: "20px 0",
+    borderColor: "#334155",
+  },
+
+  output: {
+    marginTop: "10px",
+    background: "#1e293b",
+    padding: "18px",
+    borderRadius: "12px",
+    textAlign: "left",
+    lineHeight: "1.7",
+    fontSize: "15px",
+  },
 };
 
 export default App;
