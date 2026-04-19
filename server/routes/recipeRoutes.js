@@ -1,16 +1,15 @@
 const express = require("express");
 const router = express.Router();
 
+const upload = require("../middleware/upload");
 const {
   generateRecipe,
-  getRecipes,
-  deleteRecipe,
-  toggleFavorite,
+  analyzeImage,
+  generateSuggestions,
 } = require("../controllers/recipeController");
 
 router.post("/generate", generateRecipe);
-router.get("/", getRecipes);
-router.delete("/:id", deleteRecipe);
-router.put("/favorite/:id", toggleFavorite);
+router.post("/analyze", upload.single("image"), analyzeImage);
+router.post("/suggestions", generateSuggestions);
 
 module.exports = router;
