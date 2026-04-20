@@ -6,17 +6,21 @@ const {
   generateRecipe,
   analyzeImage,
   generateSuggestions,
-  getHistory
+  getRecipes,
+  deleteRecipe,
+  toggleFavorite,
 } = require("../controllers/recipeController");
 
-// File upload (memory storage)
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ storage: multer.memoryStorage() });
 
-// Routes
+// existing
 router.post("/generate", generateRecipe);
-router.post("/analyze", upload.single("image"), analyzeImage);
 router.post("/suggestions", generateSuggestions);
-router.get("/history", getHistory);
+router.post("/analyze", upload.single("image"), analyzeImage);
+
+// ✅ ADD THESE
+router.get("/", getRecipes);
+router.delete("/:id", deleteRecipe);
+router.put("/favorite/:id", toggleFavorite);
 
 module.exports = router;
