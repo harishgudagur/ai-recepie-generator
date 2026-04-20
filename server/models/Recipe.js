@@ -5,14 +5,6 @@ const recipeSchema = new mongoose.Schema({
   ingredients: [String],
   content: String,
   diet: String,
-  favorite: {
-    type: Boolean,
-    default: false,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model("Recipe", recipeSchema);

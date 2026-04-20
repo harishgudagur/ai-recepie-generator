@@ -1,4 +1,4 @@
-const { groq } = require("../config/gemini");
+const { groq } = require("../config/groq");
 const Recipe = require("../models/Recipe");
 
 // 🔹 Generate Recipe
@@ -20,23 +20,27 @@ exports.generateRecipe = async (req, res) => {
           role: "user",
           content: `Create a ${diet || "normal"} recipe using: ${ingredients.join(", ")}.
 
-Return STRICTLY in this format:
+Return STRICTLY:
 
 ## Title
-
 ## Ingredients
-- item
+- item 1
+- item 2
 
 ## Steps
-1. step`,
+1. Step one
+2. Step two`,
         },
       ],
     });
 
-    const recipeText = response.choices[0].message.content;
+    console.log("Groq response:", response);
 
-    const titleLine = recipeText.split("\n").find(l => l.includes("##")) || "Recipe";
-    const title = titleLine.replace("##", "").trim();
+    const recipeText =
+      response?.choices?.[0]?.message?.content ||
+      "Failed to generate recipe";
+
+    const title = recipeText.split("\n")[0];
 
     const saved = await Recipe.create({
       title,
@@ -45,32 +49,19 @@ Return STRICTLY in this format:
       diet,
     });
 
-    res.json({ recipe: recipeText, id: saved._id });
+    res.json({
+      recipe: recipeText,
+      id: saved._id,
+    });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to generate recipe" });
+    console.error("Groq error FULL:", err);
+
+    res.status(500).json({
+      error: "Recipe generation failed",
+      details: err.message,
+    });
   }
-};
-
-// 🔹 Get all recipes
-exports.getRecipes = async (req, res) => {
-  const recipes = await Recipe.find().sort({ createdAt: -1 });
-  res.json(recipes);
-};
-
-// 🔹 Delete recipe
-exports.deleteRecipe = async (req, res) => {
-  await Recipe.findByIdAndDelete(req.params.id);
-  res.json({ message: "Deleted" });
-};
-
-// 🔹 Toggle favorite
-exports.toggleFavorite = async (req, res) => {
-  const recipe = await Recipe.findById(req.params.id);
-  recipe.favorite = !recipe.favorite;
-  await recipe.save();
-  res.json(recipe);
 };
 
 // 🔹 Analyze Image
@@ -97,15 +88,14 @@ exports.analyzeImage = async (req, res) => {
             },
             {
               type: "text",
-              text: `Return ONLY JSON array of ingredients.
-Example: ["egg","bread"]`,
+              text: `Return ONLY JSON array of ingredients like ["egg","bread"]`,
             },
           ],
         },
       ],
     });
 
-    const text = response.choices[0].message.content;
+    const text = response?.choices?.[0]?.message?.content || "[]";
 
     let ingredients = [];
 
@@ -122,8 +112,12 @@ Example: ["egg","bread"]`,
     res.json({ ingredients });
 
   } catch (err) {
-    console.error("Image error:", err.message);
-    res.status(500).json({ error: "Image analysis failed" });
+    console.error("Image error:", err);
+
+    res.status(500).json({
+      error: "Image processing failed",
+      details: err.message,
+    });
   }
 };
 
@@ -132,10 +126,6 @@ exports.generateSuggestions = async (req, res) => {
   try {
     let { ingredients } = req.body;
 
-    if (!ingredients || !Array.isArray(ingredients)) {
-      return res.status(400).json({ error: "Invalid ingredients" });
-    }
-
     ingredients = ingredients.map(i => i.trim()).filter(i => i);
 
     const response = await groq.chat.completions.create({
@@ -143,28 +133,33 @@ exports.generateSuggestions = async (req, res) => {
       messages: [
         {
           role: "user",
-          content: `Give 3 recipe ideas using: ${ingredients.join(", ")}.`,
+          content: `Give 3 recipe ideas using: ${ingredients.join(", ")}`,
         },
       ],
     });
 
-    const suggestions = response.choices[0].message.content
-      .split("\n")
-      .filter(i => i);
+    const suggestions =
+      response?.choices?.[0]?.message?.content
+        ?.split("\n")
+        .filter(i => i) || [];
 
     res.json({ suggestions });
 
   } catch (err) {
-    console.error("Suggestions error:", err.message);
-    res.status(500).json({ error: "Failed to generate suggestions" });
+    console.error("Suggestions error:", err);
+
+    res.status(500).json({
+      error: "Failed to generate suggestions",
+    });
   }
 };
 
-exports.getRecipes = async (req, res) => {
+// 🔹 History
+exports.getHistory = async (req, res) => {
   try {
     const recipes = await Recipe.find().sort({ createdAt: -1 });
     res.json(recipes);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch recipes" });
+    res.status(500).json({ error: "Failed to fetch history" });
   }
 };
