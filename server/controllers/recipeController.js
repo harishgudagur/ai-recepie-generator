@@ -11,11 +11,6 @@ exports.generateRecipe = async (req, res) => {
     }
 
     ingredients = ingredients.map(i => i.trim()).filter(i => i);
-
-    if (ingredients.length === 0) {
-      return res.status(400).json({ error: "Ingredients required" });
-    }
-
     ingredients = [...new Set(ingredients.map(i => i.toLowerCase()))];
 
     const response = await groq.chat.completions.create({
@@ -41,16 +36,9 @@ Return STRICTLY:
 
     const recipeText =
       response?.choices?.[0]?.message?.content ||
-      "Recipe generation failed";
+      "Failed to generate recipe";
 
-    // ✅ safer title extraction
-    const titleLine = recipeText.split("\n").find(line =>
-      line.toLowerCase().includes("title")
-    );
-
-    const title = titleLine
-      ? titleLine.replace(/##\s*title/i, "").trim()
-      : "Generated Recipe";
+    const title = recipeText.split("\n")[0];
 
     const saved = await Recipe.create({
       title,
@@ -65,21 +53,25 @@ Return STRICTLY:
     });
 
   } catch (err) {
-    console.error("Groq error FULL:", err);
-
-    res.status(500).json({
-      error: "Recipe generation failed",
-      details: err.message,
-    });
+    console.error("Generate error:", err);
+    res.status(500).json({ error: "Recipe generation failed" });
   }
 };
 
-// 🔹 Analyze Image
+// 🔹 Analyze Image (FIXED)
 exports.analyzeImage = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No image uploaded" });
     }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+if (!allowedTypes.includes(req.file.mimetype)) {
+  return res.status(400).json({
+    error: "Only JPG, PNG, WEBP allowed",
+  });
+}
 
     const base64 = req.file.buffer.toString("base64");
     const mime = req.file.mimetype;
@@ -124,11 +116,7 @@ exports.analyzeImage = async (req, res) => {
 
   } catch (err) {
     console.error("Image error:", err);
-
-    res.status(500).json({
-      error: "Image processing failed",
-      details: err.message,
-    });
+    res.status(500).json({ error: "Image processing failed" });
   }
 };
 
@@ -136,10 +124,6 @@ exports.analyzeImage = async (req, res) => {
 exports.generateSuggestions = async (req, res) => {
   try {
     let { ingredients } = req.body;
-
-    if (!ingredients || !Array.isArray(ingredients)) {
-      return res.status(400).json({ error: "Invalid ingredients" });
-    }
 
     ingredients = ingredients.map(i => i.trim()).filter(i => i);
 
@@ -161,53 +145,38 @@ exports.generateSuggestions = async (req, res) => {
     res.json({ suggestions });
 
   } catch (err) {
-    console.error("Suggestions error:", err);
-
-    res.status(500).json({
-      error: "Failed to generate suggestions",
-    });
+    res.status(500).json({ error: "Suggestions failed" });
   }
 };
 
-// 🔹 GET ALL RECIPES (History)
+// 🔹 GET ALL RECIPES (IMPORTANT)
 exports.getRecipes = async (req, res) => {
   try {
     const recipes = await Recipe.find().sort({ createdAt: -1 });
     res.json(recipes);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch recipes" });
+    res.status(500).json({ error: "Fetch failed" });
   }
 };
 
-// 🔹 DELETE RECIPE
+// 🔹 DELETE
 exports.deleteRecipe = async (req, res) => {
   try {
-    const deleted = await Recipe.findByIdAndDelete(req.params.id);
-
-    if (!deleted) {
-      return res.status(404).json({ error: "Recipe not found" });
-    }
-
+    await Recipe.findByIdAndDelete(req.params.id);
     res.json({ message: "Deleted" });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: "Delete failed" });
   }
 };
 
-// 🔹 TOGGLE FAVORITE
+// 🔹 FAVORITE
 exports.toggleFavorite = async (req, res) => {
   try {
     const recipe = await Recipe.findById(req.params.id);
-
-    if (!recipe) {
-      return res.status(404).json({ error: "Recipe not found" });
-    }
-
     recipe.favorite = !recipe.favorite;
     await recipe.save();
-
     res.json(recipe);
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: "Favorite failed" });
   }
 };

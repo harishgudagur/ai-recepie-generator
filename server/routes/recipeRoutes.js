@@ -13,13 +13,13 @@ const {
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// existing
 router.post("/generate", generateRecipe);
-router.post("/suggestions", generateSuggestions);
 router.post("/analyze", upload.single("image"), analyzeImage);
+router.post("/suggestions", generateSuggestions);
 
-// ✅ ADD THESE
+// ✅ IMPORTANT (fix 404 error)
 router.get("/", getRecipes);
+
 router.delete("/:id", deleteRecipe);
 router.put("/favorite/:id", toggleFavorite);
 
