@@ -7,9 +7,16 @@ function History() {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
+  // ✅ Use your Render backend
+  const API_URL = "https://ai-recepie-generator.onrender.com/api/recipes";
+
   const fetchRecipes = async () => {
-    const res = await axios.get("http://localhost:5000/api/recipes");
-    setRecipes(res.data);
+    try {
+      const res = await axios.get(API_URL);
+      setRecipes(res.data);
+    } catch (err) {
+      console.error("Fetch error:", err.message);
+    }
   };
 
   useEffect(() => {
@@ -17,13 +24,21 @@ function History() {
   }, []);
 
   const deleteRecipe = async (id) => {
-    await axios.delete(`http://localhost:5000/api/recipes/${id}`);
-    fetchRecipes();
+    try {
+      await axios.delete(`${API_URL}/${id}`);
+      fetchRecipes();
+    } catch (err) {
+      console.error("Delete error:", err.message);
+    }
   };
 
   const toggleFavorite = async (id) => {
-    await axios.put(`http://localhost:5000/api/recipes/favorite/${id}`);
-    fetchRecipes();
+    try {
+      await axios.put(`${API_URL}/favorite/${id}`);
+      fetchRecipes();
+    } catch (err) {
+      console.error("Favorite error:", err.message);
+    }
   };
 
   const filtered = recipes.filter((r) =>
